@@ -8,11 +8,13 @@ import { CreateIssueModal } from './src/create-issue-modal';
 interface RedminePluginSettings {
 	redmineUrl: string;
 	redmineApiKey: string;
+	userId: string;
 }
 
 const DEFAULT_SETTINGS: RedminePluginSettings = {
 	redmineUrl: '',
-	redmineApiKey: ''
+	redmineApiKey: '',
+	userId: ''
 }
 
 export default class RedminePlugin extends Plugin {
@@ -110,5 +112,24 @@ class RedmineSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.redmineClient = new RedmineClient(this.plugin.settings.redmineUrl, this.plugin.settings.redmineApiKey);
 				}));
+
+		new Setting(containerEl)
+			.setName('Your Redmine User')
+			.setDesc('Select your Redmine user.')
+			.addDropdown(async dropdown => {
+				try {
+					const users = await this.plugin.redmineClient.getUsers();
+					for (const user of users.users) {
+						dropdown.addOption(user.id, user.name);
+					}
+					dropdown.setValue(this.plugin.settings.userId);
+					dropdown.onChange(async (value) => {
+						this.plugin.settings.userId = value;
+						await this.plugin.saveSettings();
+					});
+				} catch (e) {
+					console.error(e);
+				}
+			});
 	}
 }

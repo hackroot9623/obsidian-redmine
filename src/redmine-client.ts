@@ -28,8 +28,8 @@ export class RedmineClient {
         return this.request('GET', 'projects.json');
     }
 
-    async getIssues(): Promise<any> {
-        return this.request('GET', 'issues.json');
+    async getIssues(userId: string): Promise<any> {
+        return this.request('GET', `issues.json?assigned_to_id=${userId}`);
     }
 
     async createIssue(issue: any): Promise<any> {
@@ -43,5 +43,9 @@ export class RedmineClient {
                 hours: hours,
             },
         });
+    }
+
+    async getUsers(): Promise<any> {
+        return this.request('GET', 'users.json');
     }
 }

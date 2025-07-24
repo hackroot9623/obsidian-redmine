@@ -18,12 +18,27 @@ export class CreateIssueModal extends Modal {
         let projectId: string;
         let estimatedTime: string;
         let parentIssue: string;
+        let assigneeId: string;
 
         new Setting(contentEl)
             .setName('Subject')
             .addText(text => text
                 .setValue(this.subject)
                 .setDisabled(true));
+
+        new Setting(contentEl)
+            .setName('Created by')
+            .addText(text => {
+                // @ts-ignore
+                const userId = this.app.plugins.plugins['obsidian-redmine-integration'].settings.userId;
+                this.redmineClient.getUsers().then(users => {
+                    const user = users.users.find((u: any) => u.id == userId);
+                    if (user) {
+                        text.setValue(user.name);
+                    }
+                });
+                text.setDisabled(true)
+            });
 
         new Setting(contentEl)
             .setName('Estimated time')
@@ -53,6 +68,21 @@ export class CreateIssueModal extends Modal {
                 .onChange(value => parentIssue = value));
 
         new Setting(contentEl)
+            .setName('Assignee')
+            .addDropdown(async dropdown => {
+                try {
+                    const users = await this.redmineClient.getUsers();
+                    for (const user of users.users) {
+                        dropdown.addOption(user.id, user.name);
+                    }
+                    assigneeId = dropdown.getValue();
+                    dropdown.onChange(value => assigneeId = value);
+                } catch (e) {
+                    console.error(e);
+                }
+            });
+
+        new Setting(contentEl)
             .addButton(button => button
                 .setButtonText('Create')
                 .onClick(async () => {
@@ -60,6 +90,7 @@ export class CreateIssueModal extends Modal {
                         const issue: any = {
                             subject: this.subject,
                             project_id: projectId,
+                            assigned_to_id: assigneeId,
                         };
                         if (estimatedTime) {
                             issue.estimated_hours = estimatedTime;

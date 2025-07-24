@@ -28,7 +28,9 @@ export class TaskListView extends ItemView {
         container.createEl('h2', { text: 'Redmine Tasks' });
 
         try {
-            const issues = await this.redmineClient.getIssues();
+            // @ts-ignore
+            const userId = this.app.plugins.plugins['obsidian-redmine-integration'].settings.userId;
+            const issues = await this.redmineClient.getIssues(userId);
             const issuesContainer = container.createDiv();
             for (const issue of issues.issues) {
                 const issueEl = issuesContainer.createDiv();
