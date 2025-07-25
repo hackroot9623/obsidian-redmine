@@ -130,7 +130,7 @@ class RedmineSettingTab extends PluginSettingTab {
 						this.plugin.settings.userId = value;
 						await this.plugin.saveSettings();
 					});
-					dropdown.selectEl.addClass('assignee-dropdown');
+					dropdown.selectEl.addClass('wide-dropdown');
 				} catch (e) {
 					console.error(e);
 				}
