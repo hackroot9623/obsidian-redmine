@@ -27,13 +27,34 @@ export class TaskListView extends ItemView {
         container.empty();
         container.createEl('h2', { text: 'Redmine Tasks' });
 
+        const searchInput = container.createEl('input', {
+            type: 'text',
+            placeholder: 'Search issues...'
+        });
+
+        const issuesContainer = container.createDiv();
+        const issues = await this.renderIssues(issuesContainer);
+
+        searchInput.on('input', () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const filteredIssues = issues.issues.filter((issue: any) =>
+                issue.subject.toLowerCase().includes(searchTerm)
+            );
+            this.renderIssues(issuesContainer, { issues: filteredIssues });
+        });
+    }
+
+    async renderIssues(container: HTMLElement, issues: any = null) {
+        container.empty();
         try {
-            // @ts-ignore
-            const userId = this.app.plugins.plugins['obsidian-redmine-integration'].settings.userId;
-            const issues = await this.redmineClient.getIssues(userId);
-            const issuesContainer = container.createDiv();
+            if (!issues) {
+                // @ts-ignore
+                const userId = this.app.plugins.plugins['obsidian-redmine-integration'].settings.userId;
+                issues = await this.redmineClient.getIssues(userId);
+            }
+
             for (const issue of issues.issues) {
-                const issueEl = issuesContainer.createDiv();
+                const issueEl = container.createDiv();
                 issueEl.createEl('a', { text: issue.subject, href: `${this.redmineClient.redmineUrl}/issues/${issue.id}` });
                 issueEl.createEl('span', { text: ` #${issue.id}` });
                 issueEl.createEl('span', { text: ` (${issue.tracker.name})` });
@@ -43,6 +64,7 @@ export class TaskListView extends ItemView {
                     new LogTimeModal(this.app, this.redmineClient, issue.id).open();
                 });
             }
+            return issues;
         } catch (e) {
             container.createEl('p', { text: 'Error fetching issues from Redmine.' });
             console.error(e);

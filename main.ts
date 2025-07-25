@@ -2,6 +2,7 @@ import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Set
 import { RedmineClient } from './src/redmine-client';
 import { TaskListView, TASK_LIST_VIEW_TYPE } from './src/task-list-view';
 import { CreateIssueModal } from './src/create-issue-modal';
+import './styles.css';
 
 // Remember to rename these classes and interfaces!
 
@@ -9,12 +10,14 @@ interface RedminePluginSettings {
 	redmineUrl: string;
 	redmineApiKey: string;
 	userId: string;
+	geminiApiKey: string;
 }
 
 const DEFAULT_SETTINGS: RedminePluginSettings = {
 	redmineUrl: '',
 	redmineApiKey: '',
-	userId: ''
+	userId: '',
+	geminiApiKey: ''
 }
 
 export default class RedminePlugin extends Plugin {
@@ -127,9 +130,21 @@ class RedmineSettingTab extends PluginSettingTab {
 						this.plugin.settings.userId = value;
 						await this.plugin.saveSettings();
 					});
+					dropdown.selectEl.addClass('assignee-dropdown');
 				} catch (e) {
 					console.error(e);
 				}
 			});
+
+		new Setting(containerEl)
+			.setName('Gemini API Key')
+			.setDesc('Your Google Gemini API key.')
+			.addText(text => text
+				.setPlaceholder('Enter your API key')
+				.setValue(this.plugin.settings.geminiApiKey)
+				.onChange(async (value) => {
+					this.plugin.settings.geminiApiKey = value;
+					await this.plugin.saveSettings();
+				}));
 	}
 }

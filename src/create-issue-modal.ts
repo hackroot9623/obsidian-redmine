@@ -1,14 +1,32 @@
 import { App, Modal, Setting } from 'obsidian';
 import { RedmineClient } from './redmine-client';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export class CreateIssueModal extends Modal {
     private redmineClient: RedmineClient;
     private subject: string;
+    private descriptionTextArea: any;
 
     constructor(app: App, redmineClient: RedmineClient, subject: string) {
         super(app);
         this.redmineClient = redmineClient;
         this.subject = subject;
+    }
+
+    async generateDescription() {
+        // @ts-ignore
+        const geminiApiKey = this.app.plugins.plugins['obsidian-redmine-integration'].settings.geminiApiKey;
+        if (!geminiApiKey) {
+            console.error('Gemini API key is not set.');
+            return;
+        }
+
+        const genAI = new GoogleGenerativeAI(geminiApiKey);
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const prompt = `Based on the issue summary "${this.subject}", write a professional and technical description for a new issue.`;
+
+        const result = await model.generateContent(prompt);
+        this.descriptionTextArea.setValue(result.response.text());
     }
 
     onOpen() {
@@ -77,10 +95,28 @@ export class CreateIssueModal extends Modal {
                     }
                     assigneeId = dropdown.getValue();
                     dropdown.onChange(value => assigneeId = value);
+                    dropdown.selectEl.addClass('assignee-dropdown');
                 } catch (e) {
                     console.error(e);
                 }
             });
+
+        let description: string;
+
+        new Setting(contentEl)
+            .setName('Description')
+            .addTextArea(text => {
+                this.descriptionTextArea = text;
+                text.onChange(value => description = value);
+            });
+
+        new Setting(contentEl)
+            .addButton(button => button
+                .setButtonText('Generate description')
+                .onClick(async () => {
+                    await this.generateDescription();
+                }));
+
 
         new Setting(contentEl)
             .addButton(button => button
@@ -91,6 +127,7 @@ export class CreateIssueModal extends Modal {
                             subject: this.subject,
                             project_id: projectId,
                             assigned_to_id: assigneeId,
+                            description: description,
                         };
                         if (estimatedTime) {
                             issue.estimated_hours = estimatedTime;
