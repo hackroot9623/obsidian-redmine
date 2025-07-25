@@ -1,3 +1,11 @@
-.assignee-dropdown {
+.wide-dropdown {
     width: 300px;
+}
+
+.large-textarea {
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+    font-family: inherit;
+    font-size: inherit;
 }

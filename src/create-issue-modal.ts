@@ -74,6 +74,7 @@ export class CreateIssueModal extends Modal {
                     }
                     projectId = dropdown.getValue();
                     dropdown.onChange(value => projectId = value);
+                    dropdown.selectEl.addClass('wide-dropdown');
                 } catch (e) {
                     console.error(e);
                 }
@@ -95,7 +96,7 @@ export class CreateIssueModal extends Modal {
                     }
                     assigneeId = dropdown.getValue();
                     dropdown.onChange(value => assigneeId = value);
-                    dropdown.selectEl.addClass('assignee-dropdown');
+                    dropdown.selectEl.addClass('wide-dropdown');
                 } catch (e) {
                     console.error(e);
                 }
@@ -108,6 +109,7 @@ export class CreateIssueModal extends Modal {
             .addTextArea(text => {
                 this.descriptionTextArea = text;
                 text.onChange(value => description = value);
+                text.inputEl.addClass('large-textarea');
             });
 
         new Setting(contentEl)
