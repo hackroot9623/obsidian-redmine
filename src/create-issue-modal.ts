@@ -92,7 +92,9 @@ export class CreateIssueModal extends Modal {
                 try {
                     const users = await this.redmineClient.getUsers();
                     for (const user of users.users) {
-                        dropdown.addOption(user.id, user.name);
+                        // Use name if available, otherwise fallback to login or id
+                        const displayName = user.name || user.login || `User ${user.id}`;
+                        dropdown.addOption(user.id, displayName);
                     }
                     assigneeId = dropdown.getValue();
                     dropdown.onChange(value => assigneeId = value);

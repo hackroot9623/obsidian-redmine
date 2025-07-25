@@ -123,7 +123,9 @@ class RedmineSettingTab extends PluginSettingTab {
 				try {
 					const users = await this.plugin.redmineClient.getUsers();
 					for (const user of users.users) {
-						dropdown.addOption(user.id, user.name);
+						// Use name if available, otherwise fallback to login or id
+						const displayName = user.name || user.login || `User ${user.id}`;
+						dropdown.addOption(user.id, displayName);
 					}
 					dropdown.setValue(this.plugin.settings.userId);
 					dropdown.onChange(async (value) => {
