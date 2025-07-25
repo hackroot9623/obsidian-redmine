@@ -1,5 +1,6 @@
 .wide-dropdown {
-    width: 300px;
+    width: 400px;
+    min-width: 300px;
 }
 
 .large-textarea {
