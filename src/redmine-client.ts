@@ -93,6 +93,10 @@ export class RedmineClient {
         return this.request('GET', 'trackers.json');
     }
 
+    async getIssueStatuses(): Promise<any> {
+        return this.request('GET', 'issue_statuses.json');
+    }
+
     async getProjectMemberships(projectId: string): Promise<any> {
         const limit = 100;
         let offset = 0;
@@ -112,7 +116,23 @@ export class RedmineClient {
         return { memberships: allMemberships, total_count: allMemberships.length };
     }
 
-    async searchIssues(query: string, projectId?: string, userId?: string): Promise<any> {
+    async updateIssueStatus(issueId: number, statusId: number): Promise<any> {
+        return this.request('PUT', `issues/${issueId}.json`, {
+            issue: {
+                status_id: statusId,
+            },
+        });
+    }
+
+    async getIssueAllowedStatuses(issueId: number): Promise<any> {
+        return this.request('GET', `issues/${issueId}.json?include=allowed_statuses`);
+    }
+
+    async getProjectVersions(projectId: string): Promise<any> {
+        return this.request('GET', `projects/${projectId}/versions.json`);
+    }
+
+    async searchIssues(query: string, projectId?: string, userId?: string, sprintId?: number): Promise<any> {
         const limit = 100;
         let offset = 0;
         let allIssues = [];
@@ -131,6 +151,10 @@ export class RedmineClient {
 
             if (userId) {
                 url += `&assigned_to_id=${userId}`;
+            }
+
+            if (sprintId) {
+                url += `&fixed_version_id=${sprintId}`;
             }
 
             const response = await this.request('GET', url);

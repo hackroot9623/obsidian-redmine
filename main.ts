@@ -5,11 +5,13 @@ import { IssueSelectionModal } from './src/issue-selection-modal';
 import { IssuesView } from './src/issues-view';
 import { ProjectsView } from './src/projects-view';
 import { TaskListView } from './src/task-list-view';
+import { KanbanView } from './src/kanban-view';
 import './styles.css';
 
 export const TASK_LIST_VIEW_TYPE = 'redmine-task-list-view';
 export const ISSUES_VIEW_TYPE = 'redmine-issues-view';
 export const PROJECTS_VIEW_TYPE = 'redmine-projects-view';
+export const KANBAN_VIEW_TYPE = 'redmine-kanban-view';
 
 // Remember to rename these classes and interfaces!
 
@@ -45,6 +47,11 @@ export default class RedminePlugin extends Plugin {
 		this.registerView(
 			TASK_LIST_VIEW_TYPE,
 			(leaf) => new TaskListView(leaf, this.app, this.redmineClient)
+		);
+
+		this.registerView(
+			KANBAN_VIEW_TYPE,
+			(leaf) => new KanbanView(leaf, this.redmineClient)
 		);
 
 		this.addRibbonIcon("dice", "Activate view", () => {
@@ -86,6 +93,21 @@ export default class RedminePlugin extends Plugin {
 			name: 'Open Redmine Issues View',
 			callback: () => {
 				this.activateView();
+			}
+		});
+
+		this.addCommand({
+			id: 'open-redmine-kanban-view',
+			name: 'Open Redmine Kanban View',
+			callback: async () => {
+				this.app.workspace.detachLeavesOfType(KANBAN_VIEW_TYPE);
+				await this.app.workspace.getRightLeaf(false).setViewState({
+				  type: KANBAN_VIEW_TYPE,
+				  active: true,
+				});
+				this.app.workspace.revealLeaf(
+				  this.app.workspace.getLeavesOfType(KANBAN_VIEW_TYPE)[0]
+				);
 			}
 		});
 
@@ -270,6 +292,7 @@ class RedmineSettingTab extends PluginSettingTab {
 			.addDropdown(dropdown => {
 				dropdown.addOption(ISSUES_VIEW_TYPE, 'Issues View');
 				dropdown.addOption(TASK_LIST_VIEW_TYPE, 'Task List View');
+				dropdown.addOption(KANBAN_VIEW_TYPE, 'Kanban View');
 				dropdown.setValue(defaultView);
 				dropdown.onChange(value => {
 					defaultView = value;
