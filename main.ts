@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, Menu } from 'obsidian';
 import { RedmineClient } from './src/redmine-client';
 import { TaskListView, TASK_LIST_VIEW_TYPE } from './src/task-list-view';
 import { CreateIssueModal } from './src/create-issue-modal';
@@ -11,13 +11,15 @@ interface RedminePluginSettings {
 	redmineApiKey: string;
 	userId: string;
 	geminiApiKey: string;
+	language: string;
 }
 
 const DEFAULT_SETTINGS: RedminePluginSettings = {
 	redmineUrl: '',
 	redmineApiKey: '',
 	userId: '',
-	geminiApiKey: ''
+	geminiApiKey: '',
+	language: 'en'
 }
 
 export default class RedminePlugin extends Plugin {
@@ -51,6 +53,21 @@ export default class RedminePlugin extends Plugin {
 			}
 		});
 
+		this.registerEvent(
+			this.app.workspace.on('editor-menu', (menu: Menu, editor: Editor, view: MarkdownView) => {
+				menu.addItem((item) => {
+					item.setTitle('Create Redmine Issue')
+						.setIcon('bug')
+						.onClick(() => {
+							const selection = editor.getSelection();
+							if (selection) {
+								new CreateIssueModal(this.app, this.redmineClient, selection).open();
+							}
+						});
+				});
+			})
+		);
+
 	}
 
 	async activateView() {
@@ -79,6 +96,8 @@ export default class RedminePlugin extends Plugin {
 	}
 }
 
+import { ProjectSelectionModal } from './src/project-selection-modal';
+
 class RedmineSettingTab extends PluginSettingTab {
 	plugin: RedminePlugin;
 
@@ -89,62 +108,104 @@ class RedmineSettingTab extends PluginSettingTab {
 
 	display(): void {
 		const {containerEl} = this;
-
 		containerEl.empty();
+
+		let redmineUrl = this.plugin.settings.redmineUrl;
+		let redmineApiKey = this.plugin.settings.redmineApiKey;
+		let userId = this.plugin.settings.userId;
+		let geminiApiKey = this.plugin.settings.geminiApiKey;
+		let language = this.plugin.settings.language;
+
+		containerEl.createEl('h2', {text: 'Redmine Settings'});
 
 		new Setting(containerEl)
 			.setName('Redmine URL')
-			.setDesc('The URL of your Redmine instance.')
+			.setDesc('The base URL of your Redmine instance (e.g., https://your-redmine.com).')
 			.addText(text => text
 				.setPlaceholder('https://redmine.example.com')
-				.setValue(this.plugin.settings.redmineUrl)
-				.onChange(async (value) => {
-					this.plugin.settings.redmineUrl = value;
-					await this.plugin.saveSettings();
-					this.plugin.redmineClient = new RedmineClient(this.plugin.settings.redmineUrl, this.plugin.settings.redmineApiKey);
+				.setValue(redmineUrl)
+				.onChange(value => {
+					redmineUrl = value;
 				}));
 
 		new Setting(containerEl)
 			.setName('Redmine API Key')
-			.setDesc('Your Redmine API key.')
+			.setDesc('Your Redmine API access key. You can find this in your Redmine profile settings.')
 			.addText(text => text
 				.setPlaceholder('Enter your API key')
-				.setValue(this.plugin.settings.redmineApiKey)
-				.onChange(async (value) => {
-					this.plugin.settings.redmineApiKey = value;
-					await this.plugin.saveSettings();
-					this.plugin.redmineClient = new RedmineClient(this.plugin.settings.redmineUrl, this.plugin.settings.redmineApiKey);
+				.setValue(redmineApiKey)
+				.onChange(value => {
+					redmineApiKey = value;
+				}));
+
+		new Setting(containerEl)
+			.addButton(button => button
+				.setButtonText('Test Connection')
+				.onClick(async () => {
+					const tempClient = new RedmineClient(redmineUrl, redmineApiKey);
+					try {
+						await tempClient.testConnection();
+						new Notice('Connection successful!');
+					} catch (e) {
+						new Notice(`Connection failed: ${e.message}`);
+					}
 				}));
 
 		new Setting(containerEl)
 			.setName('Your Redmine User')
-			.setDesc('Select your Redmine user.')
+			.setDesc('Select your Redmine user from the dropdown. This is used for "Created by" field in new issues.')
 			.addDropdown(async dropdown => {
 				try {
 					const users = await this.plugin.redmineClient.getUsers();
 					for (const user of users.users) {
-						dropdown.addOption(user.id, user.name);
+						dropdown.addOption(user.id, `${user.firstname} ${user.lastname} (${user.login})`);
 					}
-					dropdown.setValue(this.plugin.settings.userId);
-					dropdown.onChange(async (value) => {
-						this.plugin.settings.userId = value;
-						await this.plugin.saveSettings();
+					dropdown.setValue(userId);
+					dropdown.onChange(value => {
+						userId = value;
 					});
 					dropdown.selectEl.addClass('wide-dropdown');
 				} catch (e) {
+					new Notice(`Failed to load Redmine users: ${e.message}`);
 					console.error(e);
 				}
 			});
 
+		containerEl.createEl('h2', {text: 'AI Settings'});
+
 		new Setting(containerEl)
 			.setName('Gemini API Key')
-			.setDesc('Your Google Gemini API key.')
+			.setDesc('Your Google Gemini API key. This is required for AI-powered description generation.')
 			.addText(text => text
 				.setPlaceholder('Enter your API key')
-				.setValue(this.plugin.settings.geminiApiKey)
-				.onChange(async (value) => {
-					this.plugin.settings.geminiApiKey = value;
+				.setValue(geminiApiKey)
+				.onChange(value => {
+					geminiApiKey = value;
+				}));
+
+		new Setting(containerEl)
+			.setName('AI Description Language')
+			.setDesc(`The language for AI-generated descriptions (e.g., 'en' for English, 'es' for Spanish, 'fr' for French).`)
+			.addText(text => text
+				.setPlaceholder('en')
+				.setValue(language)
+				.onChange(value => {
+					language = value;
+				}));
+
+		new Setting(containerEl)
+			.addButton(button => button
+				.setButtonText('Save Settings')
+				.setCta()
+				.onClick(async () => {
+					this.plugin.settings.redmineUrl = redmineUrl;
+					this.plugin.settings.redmineApiKey = redmineApiKey;
+					this.plugin.settings.userId = userId;
+					this.plugin.settings.geminiApiKey = geminiApiKey;
+					this.plugin.settings.language = language;
 					await this.plugin.saveSettings();
+					this.plugin.redmineClient = new RedmineClient(this.plugin.settings.redmineUrl, this.plugin.settings.redmineApiKey);
+					new Notice('Settings saved successfully!');
 				}));
 	}
 }

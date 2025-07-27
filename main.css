@@ -1,0 +1,14 @@
+/* styles.css */
+.wide-dropdown {
+  width: 400px;
+}
+.large-textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: inherit;
+}
+.redmine-create-issue-modal {
+  width: 800px;
+}

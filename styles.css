@@ -1,5 +1,5 @@
 .wide-dropdown {
-    width: 300px;
+    width: 400px;
 }
 
 .large-textarea {
@@ -8,4 +8,8 @@
     resize: vertical;
     font-family: inherit;
     font-size: inherit;
+}
+
+.redmine-create-issue-modal {
+    width: 800px;
 }
