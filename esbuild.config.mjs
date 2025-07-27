@@ -31,6 +31,7 @@ esbuild.build({
 		"@lezer/common",
 		"@lezer/highlight",
 		"@lezer/lr",
+		"dragula",
 		...builtins],
 	format: "cjs",
 	target: "es2018",
