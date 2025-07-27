@@ -111,4 +111,38 @@ export class RedmineClient {
 
         return { memberships: allMemberships, total_count: allMemberships.length };
     }
+
+    async searchIssues(query: string, projectId?: string, userId?: string): Promise<any> {
+        const limit = 100;
+        let offset = 0;
+        let allIssues = [];
+        let hasMore = true;
+
+        while (hasMore) {
+            let url = `issues.json?limit=${limit}&offset=${offset}`;
+
+            if (query) {
+                url += `&q=${query}`;
+            }
+
+            if (projectId) {
+                url += `&project_id=${projectId}`;
+            }
+
+            if (userId) {
+                url += `&assigned_to_id=${userId}`;
+            }
+
+            const response = await this.request('GET', url);
+            allIssues = allIssues.concat(response.issues);
+
+            if (response.issues.length < limit) {
+                hasMore = false;
+            } else {
+                offset += limit;
+            }
+        }
+
+        return { issues: allIssues, total_count: allIssues.length };
+    }
 }

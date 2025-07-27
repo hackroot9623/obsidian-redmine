@@ -24,10 +24,13 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // main.ts
 var main_exports = {};
 __export(main_exports, {
+  ISSUES_VIEW_TYPE: () => ISSUES_VIEW_TYPE,
+  PROJECTS_VIEW_TYPE: () => PROJECTS_VIEW_TYPE,
+  TASK_LIST_VIEW_TYPE: () => TASK_LIST_VIEW_TYPE,
   default: () => RedminePlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/redmine-client.ts
 var import_obsidian = require("obsidian");
@@ -127,101 +130,36 @@ var RedmineClient = class {
     }
     return { memberships: allMemberships, total_count: allMemberships.length };
   }
-};
-
-// src/task-list-view.ts
-var import_obsidian3 = require("obsidian");
-
-// src/log-time-modal.ts
-var import_obsidian2 = require("obsidian");
-var LogTimeModal = class extends import_obsidian2.Modal {
-  constructor(app, redmineClient, issueId) {
-    super(app);
-    this.redmineClient = redmineClient;
-    this.issueId = issueId;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.createEl("h2", { text: `Log Time for Issue #${this.issueId}` });
-    let hours;
-    new import_obsidian2.Setting(contentEl).setName("Hours").addText((text) => text.setPlaceholder("e.g. 1.5").onChange((value) => hours = value));
-    new import_obsidian2.Setting(contentEl).addButton((button) => button.setButtonText("Log Time").onClick(async () => {
-      try {
-        await this.redmineClient.logTime(this.issueId, hours);
-        this.close();
-      } catch (e) {
-        console.error(e);
+  async searchIssues(query, projectId, userId) {
+    const limit = 100;
+    let offset = 0;
+    let allIssues = [];
+    let hasMore = true;
+    while (hasMore) {
+      let url = `issues.json?limit=${limit}&offset=${offset}`;
+      if (query) {
+        url += `&q=${query}`;
       }
-    }));
-  }
-  onClose() {
-    const { contentEl } = this;
-    contentEl.empty();
-  }
-};
-
-// src/task-list-view.ts
-var TASK_LIST_VIEW_TYPE = "redmine-task-list-view";
-var TaskListView = class extends import_obsidian3.ItemView {
-  constructor(leaf, app, redmineClient) {
-    super(leaf);
-    this.app = app;
-    this.redmineClient = redmineClient;
-  }
-  getViewType() {
-    return TASK_LIST_VIEW_TYPE;
-  }
-  getDisplayText() {
-    return "Redmine Tasks";
-  }
-  async onOpen() {
-    const container = this.containerEl.children[1];
-    container.empty();
-    container.createEl("h2", { text: "Redmine Tasks" });
-    const searchInput = container.createEl("input", {
-      type: "text",
-      placeholder: "Search issues..."
-    });
-    const issuesContainer = container.createDiv();
-    const issues = await this.renderIssues(issuesContainer);
-    searchInput.on("input", () => {
-      const searchTerm = searchInput.value.toLowerCase();
-      const filteredIssues = issues.issues.filter(
-        (issue) => issue.subject.toLowerCase().includes(searchTerm)
-      );
-      this.renderIssues(issuesContainer, { issues: filteredIssues });
-    });
-  }
-  async renderIssues(container, issues = null) {
-    container.empty();
-    try {
-      if (!issues) {
-        const userId = this.app.plugins.plugins["obsidian-redmine-integration"].settings.userId;
-        issues = await this.redmineClient.getIssues(userId);
+      if (projectId) {
+        url += `&project_id=${projectId}`;
       }
-      for (const issue of issues.issues) {
-        const issueEl = container.createDiv();
-        issueEl.createEl("a", { text: issue.subject, href: `${this.redmineClient.redmineUrl}/issues/${issue.id}` });
-        issueEl.createEl("span", { text: ` #${issue.id}` });
-        issueEl.createEl("span", { text: ` (${issue.tracker.name})` });
-        issueEl.createEl("span", { text: ` - ${issue.status.name}` });
-        const logTimeButton = issueEl.createEl("button", { text: "Log time" });
-        logTimeButton.onClickEvent(() => {
-          new LogTimeModal(this.app, this.redmineClient, issue.id).open();
-        });
+      if (userId) {
+        url += `&assigned_to_id=${userId}`;
       }
-      return issues;
-    } catch (e) {
-      container.createEl("p", { text: "Error fetching issues from Redmine." });
-      console.error(e);
+      const response = await this.request("GET", url);
+      allIssues = allIssues.concat(response.issues);
+      if (response.issues.length < limit) {
+        hasMore = false;
+      } else {
+        offset += limit;
+      }
     }
-  }
-  async onClose() {
+    return { issues: allIssues, total_count: allIssues.length };
   }
 };
 
 // src/create-issue-modal.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 
 // node_modules/@google/generative-ai/dist/index.mjs
 var SchemaType;
@@ -1234,8 +1172,8 @@ var GoogleGenerativeAI = class {
 };
 
 // src/project-selection-modal.ts
-var import_obsidian4 = require("obsidian");
-var ProjectSelectionModal = class extends import_obsidian4.Modal {
+var import_obsidian2 = require("obsidian");
+var ProjectSelectionModal = class extends import_obsidian2.Modal {
   constructor(app, projects, onSelect) {
     super(app);
     this.projects = projects;
@@ -1244,7 +1182,7 @@ var ProjectSelectionModal = class extends import_obsidian4.Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.createEl("h2", { text: "Select Project" });
-    const searchInput = new import_obsidian4.Setting(contentEl).setName("Search").addText((text) => text.onChange((value) => this.renderProjects(value.toLowerCase())));
+    const searchInput = new import_obsidian2.Setting(contentEl).setName("Search").addText((text) => text.onChange((value) => this.renderProjects(value.toLowerCase())));
     this.renderProjects();
   }
   renderProjects(filter = "") {
@@ -1268,7 +1206,7 @@ var ProjectSelectionModal = class extends import_obsidian4.Modal {
 };
 
 // src/create-issue-modal.ts
-var CreateIssueModal = class extends import_obsidian5.Modal {
+var CreateIssueModal = class extends import_obsidian3.Modal {
   constructor(app, redmineClient, subject) {
     super(app);
     this.selectedProjectName = "None";
@@ -1347,8 +1285,8 @@ Consider the following existing description for additional context: "${currentDe
     let parentIssue;
     let trackerId;
     let estimatedTime;
-    new import_obsidian5.Setting(contentEl).setName("Subject").addText((text) => text.setValue(this.subject).setDisabled(true));
-    new import_obsidian5.Setting(contentEl).setName("Created by").addText((text) => {
+    new import_obsidian3.Setting(contentEl).setName("Subject").addText((text) => text.setValue(this.subject).setDisabled(true));
+    new import_obsidian3.Setting(contentEl).setName("Created by").addText((text) => {
       const userId = this.app.plugins.plugins["obsidian-redmine-integration"].settings.userId;
       this.redmineClient.getUsers().then((users) => {
         const user = users.users.find((u) => u.id == userId);
@@ -1358,7 +1296,7 @@ Consider the following existing description for additional context: "${currentDe
       });
       text.setDisabled(true);
     });
-    const projectSetting = new import_obsidian5.Setting(contentEl).setName("Project").setDesc("No project selected.").addButton((button) => button.setButtonText("Select Project").onClick(async () => {
+    const projectSetting = new import_obsidian3.Setting(contentEl).setName("Project").setDesc("No project selected.").addButton((button) => button.setButtonText("Select Project").onClick(async () => {
       try {
         const projects = await this.redmineClient.getProjects();
         new ProjectSelectionModal(this.app, projects.projects, (selectedProjectId) => {
@@ -1372,7 +1310,7 @@ Consider the following existing description for additional context: "${currentDe
         new Notice(e.message);
       }
     }));
-    new import_obsidian5.Setting(contentEl).setName("Tracker").addDropdown(async (dropdown) => {
+    new import_obsidian3.Setting(contentEl).setName("Tracker").addDropdown(async (dropdown) => {
       try {
         const trackers = await this.redmineClient.getTrackers();
         for (const tracker of trackers.trackers) {
@@ -1386,21 +1324,21 @@ Consider the following existing description for additional context: "${currentDe
         console.error(e);
       }
     });
-    new import_obsidian5.Setting(contentEl).setName("Description").addTextArea((text) => {
+    new import_obsidian3.Setting(contentEl).setName("Description").addTextArea((text) => {
       this.descriptionTextArea = text;
       text.setValue(this.description);
       text.onChange((value) => this.description = value);
       text.inputEl.addClass("large-textarea");
     });
-    new import_obsidian5.Setting(contentEl).addButton((button) => button.setButtonText("Generate description").onClick(async () => {
+    new import_obsidian3.Setting(contentEl).addButton((button) => button.setButtonText("Generate description").onClick(async () => {
       await this.generateDescription();
     }));
-    this.assigneeDropdown = new import_obsidian5.Setting(contentEl).setName("Assignee");
+    this.assigneeDropdown = new import_obsidian3.Setting(contentEl).setName("Assignee");
     this.updateAssigneeDropdown(this.assigneeId);
-    new import_obsidian5.Setting(contentEl).setName("Parent issue").addText((text) => text.setPlaceholder("e.g. 123").onChange((value) => parentIssue = value));
-    new import_obsidian5.Setting(contentEl).setName("Estimated time").setDesc("Estimated time for the issue (e.g., 1.5 for 1 hour 30 minutes).").addText((text) => text.setPlaceholder("e.g. 1.5").onChange((value) => estimatedTime = value));
-    new import_obsidian5.Setting(contentEl).setName("Log time").setDesc("Time to log for this issue (e.g., 0.5 for 30 minutes).").addText((text) => text.setPlaceholder("e.g. 0.5").onChange((value) => this.logTimeValue = value));
-    new import_obsidian5.Setting(contentEl).addButton((button) => button.setButtonText("Create").onClick(async () => {
+    new import_obsidian3.Setting(contentEl).setName("Parent issue").addText((text) => text.setPlaceholder("e.g. 123").onChange((value) => parentIssue = value));
+    new import_obsidian3.Setting(contentEl).setName("Estimated time").setDesc("Estimated time for the issue (e.g., 1.5 for 1 hour 30 minutes).").addText((text) => text.setPlaceholder("e.g. 1.5").onChange((value) => estimatedTime = value));
+    new import_obsidian3.Setting(contentEl).setName("Log time").setDesc("Time to log for this issue (e.g., 0.5 for 30 minutes).").addText((text) => text.setPlaceholder("e.g. 0.5").onChange((value) => this.logTimeValue = value));
+    new import_obsidian3.Setting(contentEl).addButton((button) => button.setButtonText("Create").onClick(async () => {
       try {
         if (!this.selectedProjectId) {
           new Notice("Please select a project.");
@@ -1436,15 +1374,247 @@ Consider the following existing description for additional context: "${currentDe
   }
 };
 
+// src/issue-selection-modal.ts
+var import_obsidian4 = require("obsidian");
+var IssueSelectionModal = class extends import_obsidian4.Modal {
+  // Number of issues to display per page
+  constructor(app, redmineClient, onSelect) {
+    super(app);
+    this.allIssues = [];
+    // Stores all issues fetched from Redmine
+    this.filteredIssues = [];
+    this.projects = [];
+    this.selectedProjectId = null;
+    this.currentPage = 1;
+    this.itemsPerPage = 10;
+    this.redmineClient = redmineClient;
+    this.onSelect = onSelect;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h2", { text: "Select Redmine Issue" });
+    new import_obsidian4.Setting(contentEl).setName("Filter Projects").addText((text) => {
+      text.setPlaceholder("Enter project name");
+      text.onChange((value) => this.filterProjects(value));
+    });
+    new import_obsidian4.Setting(contentEl).setName("Project").addDropdown((dropdown) => {
+      dropdown.addOption("", "All Projects");
+      this.projectDropdown = dropdown;
+      this.loadProjects();
+      dropdown.onChange((value) => {
+        this.selectedProjectId = value;
+        this.searchIssues(this.searchInput.value);
+      });
+    });
+    new import_obsidian4.Setting(contentEl).setName("Search Issue").addText((text) => {
+      text.setPlaceholder("Enter issue subject or ID");
+      text.onChange((value) => this.searchIssues(value));
+      this.searchInput = text.inputEl;
+    });
+    this.renderIssues();
+  }
+  async loadProjects() {
+    try {
+      const response = await this.redmineClient.getProjects();
+      this.projects = response.projects;
+      this.updateProjectDropdown();
+    } catch (e) {
+      console.error("Error loading projects:", e);
+      new Notice(`Error loading projects: ${e.message}`);
+    }
+  }
+  updateProjectDropdown() {
+    this.projectDropdown.selectEl.innerHTML = "";
+    this.projectDropdown.addOption("", "All Projects");
+    this.projects.forEach((project) => {
+      this.projectDropdown.addOption(project.id, project.name);
+    });
+    if (this.selectedProjectId) {
+      this.projectDropdown.setValue(this.selectedProjectId);
+    }
+  }
+  filterProjects(query) {
+    this.projectDropdown.selectEl.innerHTML = "";
+    this.projectDropdown.addOption("", "All Projects");
+    const filtered = this.projects.filter((project) => project.name.toLowerCase().includes(query.toLowerCase()));
+    filtered.forEach((project) => {
+      this.projectDropdown.addOption(project.id, project.name);
+    });
+    this.projectDropdown.setValue("");
+    this.selectedProjectId = null;
+    this.searchIssues(this.searchInput.value);
+  }
+  async searchIssues(query) {
+    const currentQuery = query.toLowerCase();
+    try {
+      const response = await this.redmineClient.searchIssues("", this.selectedProjectId, "me");
+      this.allIssues = response.issues;
+    } catch (e) {
+      console.error("Error fetching all issues:", e);
+      new Notice(`Error fetching all issues: ${e.message}`);
+      this.allIssues = [];
+    }
+    this.filteredIssues = this.allIssues.filter(
+      (issue) => issue.subject.toLowerCase().includes(currentQuery) || issue.id.toString().includes(currentQuery)
+    );
+    this.currentPage = 1;
+    this.renderIssues();
+  }
+  renderIssues() {
+    const issueListEl = this.contentEl.querySelector(".issue-list");
+    if (issueListEl) {
+      issueListEl.remove();
+    }
+    const container = this.contentEl.createDiv({ cls: "issue-list" });
+    if (this.filteredIssues.length === 0) {
+      container.createEl("p", { text: "No issues found." });
+      return;
+    }
+    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+    const endIndex = startIndex + this.itemsPerPage;
+    const issuesToDisplay = this.filteredIssues.slice(startIndex, endIndex);
+    issuesToDisplay.forEach((issue) => {
+      const issueEl = container.createDiv({ cls: "issue-item" });
+      issueEl.createEl("h4", { text: `#${issue.id}: ${issue.subject}` });
+      issueEl.createEl("p", { text: `Project: ${issue.project.name}` });
+      issueEl.createEl("p", { text: `Status: ${issue.status.name}` });
+      issueEl.createEl("p", { text: `Assigned to: ${issue.assigned_to ? issue.assigned_to.name : "N/A"}` });
+      issueEl.addEventListener("click", () => {
+        this.onSelect(issue);
+        this.close();
+      });
+    });
+    this.renderPaginationControls(container);
+  }
+  renderPaginationControls(container) {
+    const totalPages = Math.ceil(this.filteredIssues.length / this.itemsPerPage);
+    if (totalPages <= 1) {
+      return;
+    }
+    const paginationControls = container.createDiv({ cls: "pagination-controls" });
+    const prevButton = paginationControls.createEl("button", { text: "Previous" });
+    prevButton.disabled = this.currentPage === 1;
+    prevButton.addEventListener("click", () => {
+      this.currentPage--;
+      this.renderIssues();
+    });
+    const pageInfo = paginationControls.createEl("span", { text: `Page ${this.currentPage} of ${totalPages}` });
+    const nextButton = paginationControls.createEl("button", { text: "Next" });
+    nextButton.disabled = this.currentPage === totalPages;
+    nextButton.addEventListener("click", () => {
+      this.currentPage++;
+      this.renderIssues();
+    });
+  }
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+};
+
+// src/task-list-view.ts
+var import_obsidian6 = require("obsidian");
+
+// src/log-time-modal.ts
+var import_obsidian5 = require("obsidian");
+var LogTimeModal = class extends import_obsidian5.Modal {
+  constructor(app, redmineClient, issueId) {
+    super(app);
+    this.redmineClient = redmineClient;
+    this.issueId = issueId;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h2", { text: `Log Time for Issue #${this.issueId}` });
+    let hours;
+    new import_obsidian5.Setting(contentEl).setName("Hours").addText((text) => text.setPlaceholder("e.g. 1.5").onChange((value) => hours = value));
+    new import_obsidian5.Setting(contentEl).addButton((button) => button.setButtonText("Log Time").onClick(async () => {
+      try {
+        await this.redmineClient.logTime(this.issueId, hours);
+        this.close();
+      } catch (e) {
+        console.error(e);
+      }
+    }));
+  }
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+};
+
+// src/task-list-view.ts
+var TaskListView = class extends import_obsidian6.ItemView {
+  constructor(leaf, app, redmineClient) {
+    super(leaf);
+    this.app = app;
+    this.redmineClient = redmineClient;
+  }
+  getViewType() {
+    return TASK_LIST_VIEW_TYPE;
+  }
+  getDisplayText() {
+    return "Redmine Tasks";
+  }
+  async onOpen() {
+    const container = this.containerEl.children[1];
+    container.empty();
+    container.createEl("h2", { text: "Redmine Tasks" });
+    const searchInput = container.createEl("input", {
+      type: "text",
+      placeholder: "Search issues..."
+    });
+    const issuesContainer = container.createDiv();
+    const issues = await this.renderIssues(issuesContainer);
+    searchInput.on("input", () => {
+      const searchTerm = searchInput.value.toLowerCase();
+      const filteredIssues = issues.issues.filter(
+        (issue) => issue.subject.toLowerCase().includes(searchTerm)
+      );
+      this.renderIssues(issuesContainer, { issues: filteredIssues });
+    });
+  }
+  async renderIssues(container, issues = null) {
+    container.empty();
+    try {
+      if (!issues) {
+        const userId = this.app.plugins.plugins["obsidian-redmine-integration"].settings.userId;
+        issues = await this.redmineClient.getIssues(userId);
+      }
+      for (const issue of issues.issues) {
+        const issueEl = container.createDiv();
+        issueEl.createEl("a", { text: issue.subject, href: `${this.redmineClient.redmineUrl}/issues/${issue.id}` });
+        issueEl.createEl("span", { text: ` #${issue.id}` });
+        issueEl.createEl("span", { text: ` (${issue.tracker.name})` });
+        issueEl.createEl("span", { text: ` - ${issue.status.name}` });
+        const logTimeButton = issueEl.createEl("button", { text: "Log time" });
+        logTimeButton.onClickEvent(() => {
+          new LogTimeModal(this.app, this.redmineClient, issue.id).open();
+        });
+      }
+      return issues;
+    } catch (e) {
+      container.createEl("p", { text: "Error fetching issues from Redmine." });
+      console.error(e);
+    }
+  }
+  async onClose() {
+  }
+};
+
 // main.ts
+var TASK_LIST_VIEW_TYPE = "redmine-task-list-view";
+var ISSUES_VIEW_TYPE = "redmine-issues-view";
+var PROJECTS_VIEW_TYPE = "redmine-projects-view";
 var DEFAULT_SETTINGS = {
   redmineUrl: "",
   redmineApiKey: "",
   userId: "",
   geminiApiKey: "",
-  language: "en"
+  language: "en",
+  defaultView: ISSUES_VIEW_TYPE
 };
-var RedminePlugin = class extends import_obsidian6.Plugin {
+var RedminePlugin = class extends import_obsidian7.Plugin {
   async onload() {
     await this.loadSettings();
     this.redmineClient = new RedmineClient(this.settings.redmineUrl, this.settings.redmineApiKey);
@@ -1457,6 +1627,41 @@ var RedminePlugin = class extends import_obsidian6.Plugin {
       this.activateView();
     });
     this.addCommand({
+      id: "open-redmine-task-list-view",
+      name: "Open Redmine Task List View",
+      callback: async () => {
+        this.app.workspace.detachLeavesOfType(TASK_LIST_VIEW_TYPE);
+        await this.app.workspace.getRightLeaf(false).setViewState({
+          type: TASK_LIST_VIEW_TYPE,
+          active: true
+        });
+        this.app.workspace.revealLeaf(
+          this.app.workspace.getLeavesOfType(TASK_LIST_VIEW_TYPE)[0]
+        );
+      }
+    });
+    this.addCommand({
+      id: "open-redmine-projects-view",
+      name: "Open Redmine Projects View",
+      callback: async () => {
+        this.app.workspace.detachLeavesOfType(PROJECTS_VIEW_TYPE);
+        await this.app.workspace.getRightLeaf(false).setViewState({
+          type: PROJECTS_VIEW_TYPE,
+          active: true
+        });
+        this.app.workspace.revealLeaf(
+          this.app.workspace.getLeavesOfType(PROJECTS_VIEW_TYPE)[0]
+        );
+      }
+    });
+    this.addCommand({
+      id: "open-redmine-issues-view",
+      name: "Open Redmine Issues View",
+      callback: () => {
+        this.activateView();
+      }
+    });
+    this.addCommand({
       id: "create-redmine-issue",
       name: "Create Redmine Issue",
       editorCallback: (editor, view) => {
@@ -1464,6 +1669,29 @@ var RedminePlugin = class extends import_obsidian6.Plugin {
         if (selection) {
           new CreateIssueModal(this.app, this.redmineClient, selection).open();
         }
+      }
+    });
+    this.addCommand({
+      id: "insert-redmine-issue",
+      name: "Insert Redmine Issue into note",
+      callback: () => {
+        new IssueSelectionModal(this.app, this.redmineClient, (issue) => {
+          const activeLeaf = this.app.workspace.activeLeaf;
+          if (activeLeaf && activeLeaf.view instanceof import_obsidian7.MarkdownView) {
+            const editor = activeLeaf.view.editor;
+            const issueText = `## Redmine Issue: #${issue.id} - ${issue.subject}
+
+**Project:** ${issue.project.name}
+**Status:** ${issue.status.name}
+**Assigned To:** ${issue.assigned_to ? issue.assigned_to.name : "N/A"}
+**Tracker:** ${issue.tracker.name}
+**Description:**
+${issue.description || "No description provided."}
+
+[View in Redmine](${this.settings.redmineUrl}/issues/${issue.id})`;
+            editor.replaceSelection(issueText);
+          }
+        }).open();
       }
     });
     this.registerEvent(
@@ -1481,12 +1709,14 @@ var RedminePlugin = class extends import_obsidian6.Plugin {
   }
   async activateView() {
     this.app.workspace.detachLeavesOfType(TASK_LIST_VIEW_TYPE);
+    this.app.workspace.detachLeavesOfType(ISSUES_VIEW_TYPE);
+    this.app.workspace.detachLeavesOfType(PROJECTS_VIEW_TYPE);
     await this.app.workspace.getRightLeaf(false).setViewState({
-      type: TASK_LIST_VIEW_TYPE,
+      type: this.settings.defaultView,
       active: true
     });
     this.app.workspace.revealLeaf(
-      this.app.workspace.getLeavesOfType(TASK_LIST_VIEW_TYPE)[0]
+      this.app.workspace.getLeavesOfType(this.settings.defaultView)[0]
     );
   }
   onunload() {
@@ -1498,7 +1728,7 @@ var RedminePlugin = class extends import_obsidian6.Plugin {
     await this.saveData(this.settings);
   }
 };
-var RedmineSettingTab = class extends import_obsidian6.PluginSettingTab {
+var RedmineSettingTab = class extends import_obsidian7.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -1511,23 +1741,24 @@ var RedmineSettingTab = class extends import_obsidian6.PluginSettingTab {
     let userId = this.plugin.settings.userId;
     let geminiApiKey = this.plugin.settings.geminiApiKey;
     let language = this.plugin.settings.language;
+    let defaultView = this.plugin.settings.defaultView;
     containerEl.createEl("h2", { text: "Redmine Settings" });
-    new import_obsidian6.Setting(containerEl).setName("Redmine URL").setDesc("The base URL of your Redmine instance (e.g., https://your-redmine.com).").addText((text) => text.setPlaceholder("https://redmine.example.com").setValue(redmineUrl).onChange((value) => {
+    new import_obsidian7.Setting(containerEl).setName("Redmine URL").setDesc("The base URL of your Redmine instance (e.g., https://your-redmine.com).").addText((text) => text.setPlaceholder("https://redmine.example.com").setValue(redmineUrl).onChange((value) => {
       redmineUrl = value;
     }));
-    new import_obsidian6.Setting(containerEl).setName("Redmine API Key").setDesc("Your Redmine API access key. You can find this in your Redmine profile settings.").addText((text) => text.setPlaceholder("Enter your API key").setValue(redmineApiKey).onChange((value) => {
+    new import_obsidian7.Setting(containerEl).setName("Redmine API Key").setDesc("Your Redmine API access key. You can find this in your Redmine profile settings.").addText((text) => text.setPlaceholder("Enter your API key").setValue(redmineApiKey).onChange((value) => {
       redmineApiKey = value;
     }));
-    new import_obsidian6.Setting(containerEl).addButton((button) => button.setButtonText("Test Connection").onClick(async () => {
+    new import_obsidian7.Setting(containerEl).addButton((button) => button.setButtonText("Test Connection").onClick(async () => {
       const tempClient = new RedmineClient(redmineUrl, redmineApiKey);
       try {
         await tempClient.testConnection();
-        new import_obsidian6.Notice("Connection successful!");
+        new import_obsidian7.Notice("Connection successful!");
       } catch (e) {
-        new import_obsidian6.Notice(`Connection failed: ${e.message}`);
+        new import_obsidian7.Notice(`Connection failed: ${e.message}`);
       }
     }));
-    new import_obsidian6.Setting(containerEl).setName("Your Redmine User").setDesc('Select your Redmine user from the dropdown. This is used for "Created by" field in new issues.').addDropdown(async (dropdown) => {
+    new import_obsidian7.Setting(containerEl).setName("Your Redmine User").setDesc('Select your Redmine user from the dropdown. This is used for "Created by" field in new issues.').addDropdown(async (dropdown) => {
       try {
         const users = await this.plugin.redmineClient.getUsers();
         for (const user of users.users) {
@@ -1539,26 +1770,35 @@ var RedmineSettingTab = class extends import_obsidian6.PluginSettingTab {
         });
         dropdown.selectEl.addClass("wide-dropdown");
       } catch (e) {
-        new import_obsidian6.Notice(`Failed to load Redmine users: ${e.message}`);
+        new import_obsidian7.Notice(`Failed to load Redmine users: ${e.message}`);
         console.error(e);
       }
     });
     containerEl.createEl("h2", { text: "AI Settings" });
-    new import_obsidian6.Setting(containerEl).setName("Gemini API Key").setDesc("Your Google Gemini API key. This is required for AI-powered description generation.").addText((text) => text.setPlaceholder("Enter your API key").setValue(geminiApiKey).onChange((value) => {
+    new import_obsidian7.Setting(containerEl).setName("Gemini API Key").setDesc("Your Google Gemini API key. This is required for AI-powered description generation.").addText((text) => text.setPlaceholder("Enter your API key").setValue(geminiApiKey).onChange((value) => {
       geminiApiKey = value;
     }));
-    new import_obsidian6.Setting(containerEl).setName("AI Description Language").setDesc(`The language for AI-generated descriptions (e.g., 'en' for English, 'es' for Spanish, 'fr' for French).`).addText((text) => text.setPlaceholder("en").setValue(language).onChange((value) => {
+    new import_obsidian7.Setting(containerEl).setName("AI Description Language").setDesc(`The language for AI-generated descriptions (e.g., 'en' for English, 'es' for Spanish, 'fr' for French).`).addText((text) => text.setPlaceholder("en").setValue(language).onChange((value) => {
       language = value;
     }));
-    new import_obsidian6.Setting(containerEl).addButton((button) => button.setButtonText("Save Settings").setCta().onClick(async () => {
+    new import_obsidian7.Setting(containerEl).setName("Default View").setDesc("Select the default view to open when clicking the ribbon icon.").addDropdown((dropdown) => {
+      dropdown.addOption(ISSUES_VIEW_TYPE, "Issues View");
+      dropdown.addOption(TASK_LIST_VIEW_TYPE, "Task List View");
+      dropdown.setValue(defaultView);
+      dropdown.onChange((value) => {
+        defaultView = value;
+      });
+    });
+    new import_obsidian7.Setting(containerEl).addButton((button) => button.setButtonText("Save Settings").setCta().onClick(async () => {
       this.plugin.settings.redmineUrl = redmineUrl;
       this.plugin.settings.redmineApiKey = redmineApiKey;
       this.plugin.settings.userId = userId;
       this.plugin.settings.geminiApiKey = geminiApiKey;
       this.plugin.settings.language = language;
+      this.plugin.settings.defaultView = defaultView;
       await this.plugin.saveSettings();
       this.plugin.redmineClient = new RedmineClient(this.plugin.settings.redmineUrl, this.plugin.settings.redmineApiKey);
-      new import_obsidian6.Notice("Settings saved successfully!");
+      new import_obsidian7.Notice("Settings saved successfully!");
     }));
   }
 };

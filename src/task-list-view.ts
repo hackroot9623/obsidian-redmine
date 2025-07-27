@@ -1,8 +1,7 @@
 import { ItemView, WorkspaceLeaf, App } from 'obsidian';
 import { RedmineClient } from './redmine-client';
 import { LogTimeModal } from './log-time-modal';
-
-export const TASK_LIST_VIEW_TYPE = 'redmine-task-list-view';
+import { TASK_LIST_VIEW_TYPE } from '../main';
 
 export class TaskListView extends ItemView {
     private redmineClient: RedmineClient;

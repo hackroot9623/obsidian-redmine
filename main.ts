@@ -1,8 +1,15 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, Menu } from 'obsidian';
 import { RedmineClient } from './src/redmine-client';
-import { TaskListView, TASK_LIST_VIEW_TYPE } from './src/task-list-view';
 import { CreateIssueModal } from './src/create-issue-modal';
+import { IssueSelectionModal } from './src/issue-selection-modal';
+import { IssuesView } from './src/issues-view';
+import { ProjectsView } from './src/projects-view';
+import { TaskListView } from './src/task-list-view';
 import './styles.css';
+
+export const TASK_LIST_VIEW_TYPE = 'redmine-task-list-view';
+export const ISSUES_VIEW_TYPE = 'redmine-issues-view';
+export const PROJECTS_VIEW_TYPE = 'redmine-projects-view';
 
 // Remember to rename these classes and interfaces!
 
@@ -12,6 +19,7 @@ interface RedminePluginSettings {
 	userId: string;
 	geminiApiKey: string;
 	language: string;
+	defaultView: string;
 }
 
 const DEFAULT_SETTINGS: RedminePluginSettings = {
@@ -19,7 +27,8 @@ const DEFAULT_SETTINGS: RedminePluginSettings = {
 	redmineApiKey: '',
 	userId: '',
 	geminiApiKey: '',
-	language: 'en'
+	language: 'en',
+	defaultView: ISSUES_VIEW_TYPE
 }
 
 export default class RedminePlugin extends Plugin {
@@ -43,15 +52,74 @@ export default class RedminePlugin extends Plugin {
 		  });
 
 		this.addCommand({
-			id: 'create-redmine-issue',
-			name: 'Create Redmine Issue',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				const selection = editor.getSelection();
-				if (selection) {
-					new CreateIssueModal(this.app, this.redmineClient, selection).open();
-				}
+			id: 'open-redmine-task-list-view',
+			name: 'Open Redmine Task List View',
+			callback: async () => {
+				this.app.workspace.detachLeavesOfType(TASK_LIST_VIEW_TYPE);
+				await this.app.workspace.getRightLeaf(false).setViewState({
+				  type: TASK_LIST_VIEW_TYPE,
+				  active: true,
+				});
+				this.app.workspace.revealLeaf(
+				  this.app.workspace.getLeavesOfType(TASK_LIST_VIEW_TYPE)[0]
+				);
 			}
 		});
+
+		this.addCommand({
+			id: 'open-redmine-projects-view',
+			name: 'Open Redmine Projects View',
+			callback: async () => {
+				this.app.workspace.detachLeavesOfType(PROJECTS_VIEW_TYPE);
+				await this.app.workspace.getRightLeaf(false).setViewState({
+				  type: PROJECTS_VIEW_TYPE,
+				  active: true,
+				});
+				this.app.workspace.revealLeaf(
+				  this.app.workspace.getLeavesOfType(PROJECTS_VIEW_TYPE)[0]
+				);
+			}
+		});
+
+		this.addCommand({
+			id: 'open-redmine-issues-view',
+			name: 'Open Redmine Issues View',
+			callback: () => {
+				this.activateView();
+			}
+		});
+
+		this.addCommand({
+            id: 'create-redmine-issue',
+            name: 'Create Redmine Issue',
+            editorCallback: (editor: Editor, view: MarkdownView) => {
+                const selection = editor.getSelection();
+                if (selection) {
+                    new CreateIssueModal(this.app, this.redmineClient, selection).open();
+                }
+            }
+        });
+
+        this.addCommand({
+            id: 'insert-redmine-issue',
+            name: 'Insert Redmine Issue into note',
+            callback: () => {
+                new IssueSelectionModal(this.app, this.redmineClient, (issue) => {
+                    const activeLeaf = this.app.workspace.activeLeaf;
+                    if (activeLeaf && activeLeaf.view instanceof MarkdownView) {
+                        const editor = activeLeaf.view.editor;
+                        const issueText = `## Redmine Issue: #${issue.id} - ${issue.subject}\n\n` +
+                            `**Project:** ${issue.project.name}\n` +
+                            `**Status:** ${issue.status.name}\n` +
+                            `**Assigned To:** ${issue.assigned_to ? issue.assigned_to.name : 'N/A'}\n` +
+                            `**Tracker:** ${issue.tracker.name}\n` +
+                            `**Description:**\n${issue.description || 'No description provided.'}\n\n` +
+                            `[View in Redmine](${this.settings.redmineUrl}/issues/${issue.id})`;
+                        editor.replaceSelection(issueText);
+                    }
+                }).open();
+            }
+        });
 
 		this.registerEvent(
 			this.app.workspace.on('editor-menu', (menu: Menu, editor: Editor, view: MarkdownView) => {
@@ -72,14 +140,16 @@ export default class RedminePlugin extends Plugin {
 
 	async activateView() {
 		this.app.workspace.detachLeavesOfType(TASK_LIST_VIEW_TYPE);
+		this.app.workspace.detachLeavesOfType(ISSUES_VIEW_TYPE);
+		this.app.workspace.detachLeavesOfType(PROJECTS_VIEW_TYPE);
 
 		await this.app.workspace.getRightLeaf(false).setViewState({
-		  type: TASK_LIST_VIEW_TYPE,
+		  type: this.settings.defaultView,
 		  active: true,
 		});
 
 		this.app.workspace.revealLeaf(
-		  this.app.workspace.getLeavesOfType(TASK_LIST_VIEW_TYPE)[0]
+		  this.app.workspace.getLeavesOfType(this.settings.defaultView)[0]
 		);
 	  }
 
@@ -115,6 +185,7 @@ class RedmineSettingTab extends PluginSettingTab {
 		let userId = this.plugin.settings.userId;
 		let geminiApiKey = this.plugin.settings.geminiApiKey;
 		let language = this.plugin.settings.language;
+		let defaultView = this.plugin.settings.defaultView;
 
 		containerEl.createEl('h2', {text: 'Redmine Settings'});
 
@@ -194,6 +265,18 @@ class RedmineSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName('Default View')
+			.setDesc('Select the default view to open when clicking the ribbon icon.')
+			.addDropdown(dropdown => {
+				dropdown.addOption(ISSUES_VIEW_TYPE, 'Issues View');
+				dropdown.addOption(TASK_LIST_VIEW_TYPE, 'Task List View');
+				dropdown.setValue(defaultView);
+				dropdown.onChange(value => {
+					defaultView = value;
+				});
+			});
+
+		new Setting(containerEl)
 			.addButton(button => button
 				.setButtonText('Save Settings')
 				.setCta()
@@ -203,6 +286,7 @@ class RedmineSettingTab extends PluginSettingTab {
 					this.plugin.settings.userId = userId;
 					this.plugin.settings.geminiApiKey = geminiApiKey;
 					this.plugin.settings.language = language;
+					this.plugin.settings.defaultView = defaultView;
 					await this.plugin.saveSettings();
 					this.plugin.redmineClient = new RedmineClient(this.plugin.settings.redmineUrl, this.plugin.settings.redmineApiKey);
 					new Notice('Settings saved successfully!');
